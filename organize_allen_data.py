@@ -367,8 +367,16 @@ def add_percentages(df: pd.DataFrame) -> pd.DataFrame:
         brain_totals = df.groupby("source_sheet")["count"].transform("sum")
         df["count_pct_brain"] = df["count"] / brain_totals.replace(0, pd.NA)
         df["count_pct_brain"] = df["count_pct_brain"].fillna(0) * 100
+
+        # Add thalamus-specific percentages
+        thalamus_totals = df[df["allen_primary_group"] == "Thalamus"].groupby("source_sheet")["count"].transform("sum")
+        df["count_pct_thalamus"] = 0.0
+        thalamus_mask = df["allen_primary_group"] == "Thalamus"
+        if thalamus_mask.any():
+            df.loc[thalamus_mask, "count_pct_thalamus"] = (df.loc[thalamus_mask, "count"] / thalamus_totals).fillna(0) * 100
     else:
         df["count_pct_brain"] = 0
+        df["count_pct_thalamus"] = 0
 
     return df
 
@@ -458,23 +466,25 @@ def compute_group_stats_from_annotated(
     annotated_subset: pd.DataFrame,
     group_col: str,
     categories: Optional[Iterable[str]] = None,
+    use_thalamus_pct: bool = False,
 ) -> Tuple[pd.DataFrame, pd.DataFrame]:
-    if annotated_subset.empty or 'source_sheet' not in annotated_subset.columns or 'count_pct_brain' not in annotated_subset.columns:
+    pct_col = 'count_pct_thalamus' if use_thalamus_pct else 'count_pct_brain'
+    if annotated_subset.empty or 'source_sheet' not in annotated_subset.columns or pct_col not in annotated_subset.columns:
         stats_columns = [group_col, 'mean_pct', 'sem_pct', 'brain_count']
-        per_brain_columns = [group_col, 'source_sheet', 'count_pct_brain']
+        per_brain_columns = [group_col, 'source_sheet', pct_col]
         return pd.DataFrame(columns=stats_columns), pd.DataFrame(columns=per_brain_columns)
 
     data = annotated_subset.dropna(subset=['source_sheet']).copy()
     data = data.loc[data[group_col].notna()]
     if data.empty:
         stats_columns = [group_col, 'mean_pct', 'sem_pct', 'brain_count']
-        per_brain_columns = [group_col, 'source_sheet', 'count_pct_brain']
+        per_brain_columns = [group_col, 'source_sheet', pct_col]
         return pd.DataFrame(columns=stats_columns), pd.DataFrame(columns=per_brain_columns)
 
     brains = sorted(data['source_sheet'].unique())
     if not brains:
         stats_columns = [group_col, 'mean_pct', 'sem_pct', 'brain_count']
-        per_brain_columns = [group_col, 'source_sheet', 'count_pct_brain']
+        per_brain_columns = [group_col, 'source_sheet', pct_col]
         return pd.DataFrame(columns=stats_columns), pd.DataFrame(columns=per_brain_columns)
 
     if categories is None:
@@ -488,14 +498,14 @@ def compute_group_stats_from_annotated(
 
     index = pd.MultiIndex.from_product([categories, brains], names=[group_col, 'source_sheet'])
     grouped = (
-        data.groupby([group_col, 'source_sheet'])['count_pct_brain']
+        data.groupby([group_col, 'source_sheet'])[pct_col]
         .sum()
         .reindex(index, fill_value=0)
         .reset_index()
     )
 
     stats = (
-        grouped.groupby(group_col)['count_pct_brain']
+        grouped.groupby(group_col)[pct_col]
         .agg(mean_pct='mean', sem_pct='sem')
         .reset_index()
     )
@@ -511,6 +521,7 @@ def summarize_by_group(
     annotated: pd.DataFrame,
     group_col: str,
     summary_filter: Optional[pd.Series] = None,
+    use_thalamus_pct: bool = False,
 ) -> Tuple[pd.DataFrame, pd.DataFrame]:
     if group_col not in summary.columns or group_col not in annotated.columns:
         return pd.DataFrame(), pd.DataFrame()
@@ -534,7 +545,7 @@ def summarize_by_group(
     count_totals['pct_total_count'] = (count_totals['total_count'] / total_all) * 100 if total_all else 0
 
     categories = count_totals[group_col].tolist()
-    stats, per_brain = compute_group_stats_from_annotated(annotated_subset, group_col, categories=categories)
+    stats, per_brain = compute_group_stats_from_annotated(annotated_subset, group_col, categories=categories, use_thalamus_pct=use_thalamus_pct)
     if stats.empty:
         return pd.DataFrame(), pd.DataFrame()
 
@@ -556,16 +567,66 @@ def compute_cortical_subcortical_stats(annotated: pd.DataFrame) -> pd.DataFrame:
             return 'Cortex'
         if bool(row.get('is_subcortical')):
             return 'Subcortical'
-        return 'Mixed/Other'
+        return None  # Skip mixed/other entries
 
     data['category'] = data.apply(label_row, axis=1)
+    # Filter out None/mixed entries
+    data = data.dropna(subset=['category'])
     stats, _ = compute_group_stats_from_annotated(
         data[['source_sheet', 'count_pct_brain', 'category']],
         'category',
-        categories=['Cortex', 'Subcortical', 'Mixed/Other'],
+        categories=['Cortex', 'Subcortical'],
     )
     stats = stats.loc[(stats['mean_pct'] > 0) | (stats['sem_pct'] > 0)].reset_index(drop=True)
     return stats
+
+
+def get_custom_colors(categories: List[str], category_col: str, title: str = "") -> List[str]:
+    """Get custom color palette for different anatomical categories."""
+
+    # Blue to Green to Orange gradient palette for variety
+    blue_colors = ['#1565C0', '#1976D2', '#1E88E5', '#2196F3', '#42A5F5']  # Blues
+    green_colors = ['#1B5E20', '#2E7D32', '#388E3C', '#43A047', '#4CAF50', '#66BB6A', '#81C784', '#A5D6A7']  # Greens
+    orange_colors = ['#E65100', '#F57C00', '#FF9800', '#FFB74D', '#FFCC02']  # Oranges
+
+    # Combined gradient palette: blue → green → orange
+    gradient_palette = blue_colors + green_colors + orange_colors
+
+    def assign_colors_with_thalamus_priority(cats: List[str]) -> List[str]:
+        """Assign colors ensuring any category with 'thalamus' gets green."""
+        colors = []
+        green_index = 0
+        non_thalamus_index = 0
+
+        for cat in cats:
+            if 'thalamus' in cat.lower():
+                # Always assign green shades to thalamus
+                colors.append(green_colors[green_index % len(green_colors)])
+                green_index += 1
+            else:
+                # Use blue or orange for non-thalamus regions
+                if non_thalamus_index < len(blue_colors):
+                    colors.append(blue_colors[non_thalamus_index])
+                else:
+                    colors.append(orange_colors[(non_thalamus_index - len(blue_colors)) % len(orange_colors)])
+                non_thalamus_index += 1
+        return colors
+
+    if category_col == 'category':  # Cortical vs Subcortical
+        color_map = {
+            'Cortex': '#2E86AB',      # Bright blue
+            'Subcortical': '#E76F51'   # Coral/orange - contrasting
+        }
+        return [color_map.get(cat, '#777777') for cat in categories]
+    elif 'thalamic' in category_col.lower() or 'thalamus' in category_col.lower() or 'dorsal_polymodal' in category_col.lower():
+        # Pure thalamic analyses - use only green palette
+        return green_colors[:len(categories)]
+    elif 'parent' in category_col.lower() or 'cortical' in category_col.lower():
+        # Mixed groups that might contain thalamus - use smart assignment
+        return assign_colors_with_thalamus_priority(categories)
+    else:
+        # Default to gradient palette for other groups
+        return gradient_palette[:len(categories)]
 
 
 def plot_stats_bar(stats: pd.DataFrame, category_col: str, output_path: Path, title: str) -> None:
@@ -583,7 +644,7 @@ def plot_stats_bar(stats: pd.DataFrame, category_col: str, output_path: Path, ti
 
     data = data.sort_values('mean_pct', ascending=True)
     y_positions = range(len(data))
-    colors = sns.color_palette('viridis', len(data))
+    colors = get_custom_colors(data[category_col].tolist(), category_col, title)
 
     output_path.parent.mkdir(parents=True, exist_ok=True)
     plt.figure(figsize=(10, max(4, len(data) * 0.4)))
@@ -591,7 +652,11 @@ def plot_stats_bar(stats: pd.DataFrame, category_col: str, output_path: Path, ti
     ax.barh(y_positions, data['mean_pct'], xerr=data['sem_pct'], color=colors, edgecolor='black', capsize=6)
     ax.set_yticks(list(y_positions))
     ax.set_yticklabels(data[category_col])
-    ax.set_xlabel('Mean percentage of brain (%)')
+    # Set appropriate axis label based on analysis type
+    if 'thalamic' in category_col.lower() or 'thalamus' in title.lower():
+        ax.set_xlabel('Mean percentage of thalamus (%)')
+    else:
+        ax.set_xlabel('Mean percentage of brain (%)')
     ax.set_title(title)
     max_x = float((data['mean_pct'] + data['sem_pct']).max()) if not data.empty else 0.0
     ax.set_xlim(0, max(max_x * 1.1, 1.0))
@@ -751,14 +816,14 @@ def main() -> None:
         cortical_midlevel_per_brain = pd.DataFrame(columns=["cortical_parent", "source_sheet", "count_pct_brain"])
 
     thalamus_mask = summary["allen_primary_group"] == "Thalamus"
-    thalamus_summary, thalamus_per_brain = summarize_by_group(summary, annotated, "thalamic_group", summary_filter=thalamus_mask)
+    thalamus_summary, thalamus_per_brain = summarize_by_group(summary, annotated, "thalamic_group", summary_filter=thalamus_mask, use_thalamus_pct=True)
     if thalamus_summary.empty:
         thalamus_summary = pd.DataFrame(columns=["thalamic_group", "total_count", "pct_total_count", "mean_pct", "sem_pct", "brain_count"])
     if thalamus_per_brain.empty:
         thalamus_per_brain = pd.DataFrame(columns=["thalamic_group", "source_sheet", "count_pct_brain"])
 
     dorsal_mask = summary["thalamic_group"].notna() & summary["thalamic_group"].str.contains("polymodal", case=False, na=False)
-    dorsal_summary, _ = summarize_by_group(summary, annotated, "thalamic_subdivision", summary_filter=dorsal_mask)
+    dorsal_summary, _ = summarize_by_group(summary, annotated, "thalamic_subdivision", summary_filter=dorsal_mask, use_thalamus_pct=True)
     if not dorsal_summary.empty:
         dorsal_summary = dorsal_summary.rename(columns={"thalamic_subdivision": "dorsal_polymodal_subdivision"})
     else:
