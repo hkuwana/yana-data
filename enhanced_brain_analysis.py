@@ -266,68 +266,94 @@ def calculate_group_stats_with_individuals(df, group_col, value_col='count_pct_b
     
     return stats.sort_values('mean_pct_normalized', ascending=False), individual_data
 
-def create_comprehensive_excel(details_df, summary_df):
-    """Create comprehensive Excel file with all data and individual brain values"""
+def create_comprehensive_excel(details_df, summary_df, subcortical_heatmap_data=None, cortical_heatmap_data=None, 
+                              subcortical_stats=None, cortical_stats=None, subcortical_individual=None, cortical_individual=None):
+    """Create comprehensive Excel file with all data and individual brain values for every graph"""
     excel_path = EXCEL_DIR / "enhanced_brain_analysis.xlsx"
     
     with pd.ExcelWriter(excel_path, engine='openpyxl') as writer:
         # Sheet 1: Raw data summary
         summary_df.to_excel(writer, sheet_name='Raw_Data_Summary', index=False)
         
-    # Sheet 2: Individual brain values - Custom subcortical groups
-    subcortical_mask = details_df['is_subcortical'] == True
-    amygdalar_mask = details_df['Region'].str.contains('amygdalar', case=False, na=False)
-    specific_amygdalar_regions = [
-        'Cortical amygdalar area',
-        'Piriform-amygdalar area'
-    ]
-    specific_amygdalar_mask = details_df['Region'].isin(specific_amygdalar_regions)
-    all_amygdalar_mask = amygdalar_mask | specific_amygdalar_mask
-    subcortical_mask = subcortical_mask | all_amygdalar_mask
-    subcortical_data = details_df[subcortical_mask]
-    
-    subcortical_individual = subcortical_data.groupby(['custom_subcortical_group', 'source_sheet'])['count_pct_brain'].sum().reset_index()
-    subcortical_pivot = subcortical_individual.pivot(index='custom_subcortical_group', columns='source_sheet', values='count_pct_brain').fillna(0)
-    subcortical_pivot_normalized = subcortical_pivot.div(subcortical_pivot.sum(axis=0), axis=1) * 100
-    subcortical_pivot_normalized.to_excel(writer, sheet_name='Custom_Subcortical_Groups_Individual', index=True)
+        # Sheet 2: Complete raw data for reproducibility
+        details_df.to_excel(writer, sheet_name='Complete_Raw_Data', index=False)
         
-    # Sheet 3: Individual brain values - Custom cortical groups
-    cortical_mask = details_df['is_cortical'] == True
-    amygdalar_mask = details_df['Region'].str.contains('amygdalar', case=False, na=False)
-    specific_amygdalar_regions = [
-        'Cortical amygdalar area',
-        'Piriform-amygdalar area'
-    ]
-    specific_amygdalar_mask = details_df['Region'].isin(specific_amygdalar_regions)
-    all_amygdalar_mask = amygdalar_mask | specific_amygdalar_mask
-    cortical_mask = cortical_mask & ~all_amygdalar_mask  # Exclude amygdalar regions from cortical
-    cortical_data = details_df[cortical_mask]
-    
-    cortical_individual = cortical_data.groupby(['custom_cortical_group', 'source_sheet'])['count_pct_brain'].sum().reset_index()
-    cortical_pivot = cortical_individual.pivot(index='custom_cortical_group', columns='source_sheet', values='count_pct_brain').fillna(0)
-    cortical_pivot_normalized = cortical_pivot.div(cortical_pivot.sum(axis=0), axis=1) * 100
-    cortical_pivot_normalized.to_excel(writer, sheet_name='Custom_Cortical_Groups_Individual', index=True)
+        # Sheets 3-6: Heatmap data (the data used to create heatmaps)
+        if subcortical_heatmap_data is not None:
+            subcortical_heatmap_data.to_excel(writer, sheet_name='Subcortical_Heatmap_Data', index=True)
         
-    # Sheet 4: Raw individual brain values - Custom Subcortical
-    subcortical_pivot.to_excel(writer, sheet_name='Custom_Subcortical_Raw_Individual', index=True)
-    
-    # Sheet 5: Raw individual brain values - Custom Cortical
-    cortical_pivot.to_excel(writer, sheet_name='Custom_Cortical_Raw_Individual', index=True)
-    
-    # Sheet 6: Summary statistics - Custom Subcortical
-    subcortical_stats, _ = calculate_group_stats_with_individuals(subcortical_data, 'custom_subcortical_group')
-    subcortical_stats.to_excel(writer, sheet_name='Custom_Subcortical_Summary_Stats', index=False)
-    
-    # Sheet 7: Summary statistics - Custom Cortical
-    cortical_stats, _ = calculate_group_stats_with_individuals(cortical_data, 'custom_cortical_group')
-    cortical_stats.to_excel(writer, sheet_name='Custom_Cortical_Summary_Stats', index=False)
-    
-    # Sheet 8: All regions individual values
-    all_regions_individual = details_df.groupby(['Region', 'source_sheet'])['count_pct_brain'].sum().reset_index()
-    all_regions_pivot = all_regions_individual.pivot(index='Region', columns='source_sheet', values='count_pct_brain').fillna(0)
-    all_regions_pivot.to_excel(writer, sheet_name='All_Regions_Individual', index=True)
+        if cortical_heatmap_data is not None:
+            cortical_heatmap_data.to_excel(writer, sheet_name='Cortical_Heatmap_Data', index=True)
+        
+        # Sheets 7-10: Bar plot data (summary statistics and individual values)
+        if subcortical_stats is not None:
+            subcortical_stats.to_excel(writer, sheet_name='Subcortical_BarPlot_Stats', index=False)
+        
+        if cortical_stats is not None:
+            cortical_stats.to_excel(writer, sheet_name='Cortical_BarPlot_Stats', index=False)
+        
+        if subcortical_individual is not None:
+            subcortical_individual.to_excel(writer, sheet_name='Subcortical_Individual_Brains', index=True)
+        
+        if cortical_individual is not None:
+            cortical_individual.to_excel(writer, sheet_name='Cortical_Individual_Brains', index=True)
+        
+        # Sheets 11-14: Raw data used for each graph (for complete reproducibility)
+        # Subcortical data used in graphs
+        subcortical_mask = details_df['is_subcortical'] == True
+        amygdalar_mask = details_df['Region'].str.contains('amygdalar', case=False, na=False)
+        specific_amygdalar_regions = [
+            'Cortical amygdalar area',
+            'Piriform-amygdalar area'
+        ]
+        specific_amygdalar_mask = details_df['Region'].isin(specific_amygdalar_regions)
+        all_amygdalar_mask = amygdalar_mask | specific_amygdalar_mask
+        subcortical_mask = subcortical_mask | all_amygdalar_mask
+        subcortical_data = details_df[subcortical_mask]
+        subcortical_data.to_excel(writer, sheet_name='Subcortical_Raw_Data', index=False)
+        
+        # Cortical data used in graphs
+        cortical_mask = details_df['is_cortical'] == True
+        cortical_mask = cortical_mask & ~all_amygdalar_mask  # Exclude amygdalar regions from cortical
+        cortical_data = details_df[cortical_mask]
+        cortical_data.to_excel(writer, sheet_name='Cortical_Raw_Data', index=False)
+        
+        # Sheet 15: All regions individual values (for reference)
+        all_regions_individual = details_df.groupby(['Region', 'source_sheet'])['count_pct_brain'].sum().reset_index()
+        all_regions_pivot = all_regions_individual.pivot(index='Region', columns='source_sheet', values='count_pct_brain').fillna(0)
+        all_regions_pivot.to_excel(writer, sheet_name='All_Regions_Individual', index=True)
+        
+        # Sheet 16: Graph metadata and instructions
+        graph_info = pd.DataFrame({
+            'Graph_Name': [
+                'Subcortical_Heatmap',
+                'Cortical_Heatmap', 
+                'Subcortical_BarPlot',
+                'Cortical_BarPlot'
+            ],
+            'Data_Sheet': [
+                'Subcortical_Heatmap_Data',
+                'Cortical_Heatmap_Data',
+                'Subcortical_BarPlot_Stats + Subcortical_Individual_Brains',
+                'Cortical_BarPlot_Stats + Cortical_Individual_Brains'
+            ],
+            'Raw_Data_Sheet': [
+                'Subcortical_Raw_Data',
+                'Cortical_Raw_Data',
+                'Subcortical_Raw_Data',
+                'Cortical_Raw_Data'
+            ],
+            'Description': [
+                'Heatmap showing custom subcortical groups normalized to 100% per brain',
+                'Heatmap showing custom cortical groups normalized to 100% per brain',
+                'Bar plot with mean±SEM and individual brain values for subcortical groups',
+                'Bar plot with mean±SEM and individual brain values for cortical groups'
+            ]
+        })
+        graph_info.to_excel(writer, sheet_name='Graph_Data_Guide', index=False)
     
     print(f"Excel file saved: {excel_path}")
+    print(f"Excel contains {len(pd.ExcelFile(excel_path).sheet_names)} sheets with all graph data")
 
 def create_custom_cortical_groups(details_df):
     """Create custom cortical groupings based on functional areas"""
@@ -804,9 +830,18 @@ def main():
         figsize=(14, 10)
     )
     
-    # 5. Create comprehensive Excel file
-    print("Creating comprehensive Excel file...")
-    create_comprehensive_excel(details_df, summary_df)
+    # 5. Create comprehensive Excel file with all graph data
+    print("Creating comprehensive Excel file with all graph data...")
+    create_comprehensive_excel(
+        details_df, 
+        summary_df,
+        subcortical_heatmap_data=subcortical_heatmap_data,
+        cortical_heatmap_data=cortical_heatmap_data,
+        subcortical_stats=subcortical_stats,
+        cortical_stats=cortical_stats,
+        subcortical_individual=subcortical_individual,
+        cortical_individual=cortical_individual
+    )
     
     print(f"\nEnhanced analysis complete! Results saved to: {RESULTS_DIR}")
     print(f"Figures saved to: {FIGURES_DIR}")
