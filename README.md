@@ -1,6 +1,6 @@
 # Enhanced Brain Analysis
 
-This repository contains comprehensive analysis of brain region data with enhanced visualizations and individual brain value tracking. This project is open source and freely available under the MIT License.
+This repository contains comprehensive analysis of brain region data with enhanced visualizations, individual brain value tracking, and complete data reproducibility. This project is open source and freely available under the MIT License.
 
 ## Overview
 
@@ -9,26 +9,25 @@ The analysis processes brain region data from multiple sources and creates detai
 - Individual brain values for each region
 - Normalized percentages within categories
 - Comprehensive heatmaps and bar charts
+- **Complete data tables for graph reproducibility**
 
 ## Files Structure
 
 ```
 yana-data/
-├── enhanced_results/           # Enhanced analysis results
+├── results/                   # Main analysis results (renamed from enhanced_results)
 │   ├── figures/               # Enhanced visualizations
 │   │   ├── 2_custom_subcortical_groups_heatmap.*
 │   │   ├── 3_custom_cortical_groups_heatmap.*
 │   │   ├── 2_custom_subcortical_regions_enhanced.*
 │   │   └── 3_custom_cortical_regions_enhanced.*
-│   ├── excel/                 # Comprehensive Excel files
+│   ├── excel/                 # Comprehensive Excel files with all graph data
 │   │   └── enhanced_brain_analysis.xlsx
 │   ├── allen_brain_atlas_mapping_report.txt
 │   ├── excluded_regions_filter.txt
 │   └── excluded_regions_min_cells.txt
-├── comprehensive_results/      # Original comprehensive analysis
-├── results/                   # Basic analysis results
 ├── enhanced_brain_analysis.py # Enhanced analysis script
-├── comprehensive_brain_analysis.py # Original analysis script
+├── organize_allen_data.py     # Data organization script
 ├── README.md                  # This file
 └── LICENSE                    # MIT License
 ```
@@ -107,33 +106,29 @@ HYPOTHALAMUS:
   - Error bars representing standard error of the mean
   - Color-coded bars for different groups
 
-### 4. Comprehensive Data Tables
+### 4. Complete Data Reproducibility
 
-#### Excel File: `enhanced_brain_analysis.xlsx`
+#### Excel File: `enhanced_brain_analysis.xlsx` (12 Comprehensive Sheets)
 
-**Sheet 1: Raw_Data_Summary**
-- Summary statistics for all regions across all brains
+**Core Data Sheets:**
+- **Sheet 1: Raw_Data_Summary** - Summary statistics for all regions across all brains
+- **Sheet 2: Complete_Raw_Data** - Complete processed data for full reproducibility
 
-**Sheet 2: Custom_Subcortical_Groups_Individual**
-- Individual brain values for custom subcortical groups (normalized to 100% per brain)
+**Graph Data Sheets (for remaking graphs):**
+- **Sheet 3: Subcortical_Heatmap_Data** - Exact data used for subcortical groups heatmap
+- **Sheet 4: Cortical_Heatmap_Data** - Exact data used for cortical groups heatmap
+- **Sheet 5: Subcortical_BarPlot_Stats** - Summary statistics (mean±SEM) for subcortical bar plot
+- **Sheet 6: Cortical_BarPlot_Stats** - Summary statistics (mean±SEM) for cortical bar plot
+- **Sheet 7: Subcortical_Individual_Brains** - Individual brain values for subcortical bar plot
+- **Sheet 8: Cortical_Individual_Brains** - Individual brain values for cortical bar plot
 
-**Sheet 3: Custom_Cortical_Groups_Individual**
-- Individual brain values for custom cortical functional groups (normalized to 100% per brain)
+**Raw Data Sheets (for complete reproducibility):**
+- **Sheet 9: Subcortical_Raw_Data** - Complete raw data used for subcortical graphs
+- **Sheet 10: Cortical_Raw_Data** - Complete raw data used for cortical graphs
+- **Sheet 11: All_Regions_Individual** - Individual brain values for all regions (raw counts)
 
-**Sheet 4: Custom_Subcortical_Raw_Individual**
-- Raw individual brain values for custom subcortical groups (not normalized)
-
-**Sheet 5: Custom_Cortical_Raw_Individual**
-- Raw individual brain values for custom cortical groups (not normalized)
-
-**Sheet 6: Custom_Subcortical_Summary_Stats**
-- Summary statistics (mean, SEM, brain count, total cells) for custom subcortical groups
-
-**Sheet 7: Custom_Cortical_Summary_Stats**
-- Summary statistics (mean, SEM, brain count, total cells) for custom cortical groups
-
-**Sheet 8: All_Regions_Individual**
-- Individual brain values for all regions (raw counts)
+**Reference Sheet:**
+- **Sheet 12: Graph_Data_Guide** - Instructions showing which sheets contain data for each graph
 
 **Additional Files:**
 - `allen_brain_atlas_mapping_report.txt`: Complete mapping of all regions to Allen Brain Atlas groups
@@ -205,10 +200,10 @@ If you're new to GitHub and Python, follow these steps carefully:
 3. Wait for the analysis to complete (it will show progress messages)
 
 #### Step 6: Find Your Results
-1. Look for a new folder called `enhanced_results` in your project folder
+1. Look for a new folder called `results` in your project folder
 2. Inside you'll find:
    - `figures/` folder with all the graphs (PNG, SVG, PDF formats)
-   - `excel/` folder with the Excel file
+   - `excel/` folder with the Excel file containing 12 comprehensive sheets
    - `allen_brain_atlas_mapping_report.txt` with detailed mapping information
 
 #### Troubleshooting for Beginners
@@ -245,8 +240,11 @@ All visualizations are saved in three formats:
 
 #### Data Requirements
 
-- `results/allen_region_details.csv`: Detailed region data with individual brain values
-- `results/allen_region_summary.csv`: Summary statistics
+The script will automatically look for data files in the following order:
+1. `results/allen_region_details.csv`: Detailed region data with individual brain values
+2. `results/allen_region_summary.csv`: Summary statistics
+
+If these files don't exist, you may need to run `organize_allen_data.py` first to generate them from your raw data.
 
 ## Key Improvements
 
@@ -265,10 +263,12 @@ All visualizations are saved in three formats:
 - Clear explanation of normalization strategies
 - Usage instructions and data requirements
 
-### 4. Data Export
-- Multiple Excel sheets with different views of the data
-- Both raw and normalized values available
-- Summary statistics for all groups
+### 4. Complete Data Reproducibility
+- **12 comprehensive Excel sheets** with all graph data
+- **Exact data used for each graph** saved as separate sheets
+- **Complete raw data** for full reproducibility
+- **Graph Data Guide** showing which sheets contain data for each visualization
+- **Individual brain values** preserved for all analyses
 
 ## Technical Details
 

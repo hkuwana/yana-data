@@ -25,7 +25,7 @@ warnings.filterwarnings('ignore')
 
 # Set up paths
 DATA_DIR = Path("/Users/hiro/Documents/yana-data")
-RESULTS_DIR = DATA_DIR / "enhanced_results"
+RESULTS_DIR = DATA_DIR / "results"
 FIGURES_DIR = RESULTS_DIR / "figures"
 EXCEL_DIR = RESULTS_DIR / "excel"
 
@@ -36,8 +36,15 @@ EXCEL_DIR.mkdir(exist_ok=True)
 
 def load_data():
     """Load the detailed brain region data"""
-    details_path = DATA_DIR / "results" / "allen_region_details.csv"
-    summary_path = DATA_DIR / "results" / "allen_region_summary.csv"
+    # Check if we have the data files in the current results directory
+    details_path = RESULTS_DIR / "allen_region_details.csv"
+    summary_path = RESULTS_DIR / "allen_region_summary.csv"
+    
+    # If not found in results, try the original location
+    if not details_path.exists():
+        details_path = DATA_DIR / "allen_outputs" / "allen_region_details.csv"
+    if not summary_path.exists():
+        summary_path = DATA_DIR / "allen_outputs" / "allen_region_summary.csv"
     
     details_df = pd.read_csv(details_path)
     summary_df = pd.read_csv(summary_path)
