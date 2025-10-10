@@ -46,6 +46,17 @@ def load_data():
     if not summary_path.exists():
         summary_path = DATA_DIR / "allen_outputs" / "allen_region_summary.csv"
     
+    # If CSV files don't exist, try to load from Excel file
+    if not details_path.exists() or not summary_path.exists():
+        excel_path = EXCEL_DIR / "enhanced_brain_analysis.xlsx"
+        if excel_path.exists():
+            print("Loading data from existing Excel file...")
+            details_df = pd.read_excel(excel_path, sheet_name='Complete_Raw_Data')
+            summary_df = pd.read_excel(excel_path, sheet_name='Raw_Data_Summary')
+            return details_df, summary_df
+        else:
+            raise FileNotFoundError("No data files found. Please run organize_allen_data.py first or ensure Excel file exists.")
+    
     details_df = pd.read_csv(details_path)
     summary_df = pd.read_csv(summary_path)
     
@@ -274,7 +285,10 @@ def calculate_group_stats_with_individuals(df, group_col, value_col='count_pct_b
     return stats.sort_values('mean_pct_normalized', ascending=False), individual_data
 
 def create_comprehensive_excel(details_df, summary_df, subcortical_heatmap_data=None, cortical_heatmap_data=None, 
-                              subcortical_stats=None, cortical_stats=None, subcortical_individual=None, cortical_individual=None):
+                              subcortical_stats=None, cortical_stats=None, subcortical_individual=None, cortical_individual=None,
+                              cortical_vs_subcortical_data=None, thalamus_stats=None, thalamus_individual=None,
+                              polymodal_stats=None, polymodal_individual=None, sensory_stats=None, sensory_individual=None,
+                              interlaminar_stats=None, interlaminar_individual=None):
     """Create comprehensive Excel file with all data and individual brain values for every graph"""
     excel_path = EXCEL_DIR / "enhanced_brain_analysis.xlsx"
     
@@ -330,27 +344,81 @@ def create_comprehensive_excel(details_df, summary_df, subcortical_heatmap_data=
         all_regions_pivot = all_regions_individual.pivot(index='Region', columns='source_sheet', values='count_pct_brain').fillna(0)
         all_regions_pivot.to_excel(writer, sheet_name='All_Regions_Individual', index=True)
         
-        # Sheet 16: Graph metadata and instructions
+        # NEW SHEETS: Additional figures data
+        
+        # Sheet 16: Cortical vs Subcortical comparison
+        if cortical_vs_subcortical_data is not None:
+            cortical_vs_subcortical_data.to_excel(writer, sheet_name='Cortical_vs_Subcortical', index=False)
+        
+        # Sheet 17: Thalamus stats and individual values
+        if thalamus_stats is not None:
+            thalamus_stats.to_excel(writer, sheet_name='Thalamus_Stats', index=False)
+        
+        if thalamus_individual is not None:
+            thalamus_individual.to_excel(writer, sheet_name='Thalamus_Individual_Brains', index=True)
+        
+        # Sheet 18-19: Polymodal thalamus data
+        if polymodal_stats is not None:
+            polymodal_stats.to_excel(writer, sheet_name='Polymodal_Thalamus_Stats', index=False)
+        
+        if polymodal_individual is not None:
+            polymodal_individual.to_excel(writer, sheet_name='Polymodal_Thalamus_Individual', index=True)
+        
+        # Sheet 20-21: Sensory thalamus data
+        if sensory_stats is not None:
+            sensory_stats.to_excel(writer, sheet_name='Sensory_Thalamus_Stats', index=False)
+        
+        if sensory_individual is not None:
+            sensory_individual.to_excel(writer, sheet_name='Sensory_Thalamus_Individual', index=True)
+        
+        # Sheet 22-23: Interlaminar nuclei data
+        if interlaminar_stats is not None:
+            interlaminar_stats.to_excel(writer, sheet_name='Interlaminar_Nuclei_Stats', index=False)
+        
+        if interlaminar_individual is not None:
+            interlaminar_individual.to_excel(writer, sheet_name='Interlaminar_Nuclei_Individual', index=True)
+        
+        # Sheet 24: Graph metadata and instructions
         graph_info = pd.DataFrame({
             'Graph_Name': [
+                'Cortical_vs_Subcortical',
+                'Thalamus_Polymodal_vs_Sensory',
+                'Polymodal_Thalamus_Subnuclei',
+                'Sensory_Thalamus_Subnuclei',
+                'Interlaminar_Nuclei_Polymodal',
                 'Subcortical_Heatmap',
                 'Cortical_Heatmap', 
                 'Subcortical_BarPlot',
                 'Cortical_BarPlot'
             ],
             'Data_Sheet': [
+                'Cortical_vs_Subcortical',
+                'Thalamus_Stats + Thalamus_Individual_Brains',
+                'Polymodal_Thalamus_Stats + Polymodal_Thalamus_Individual',
+                'Sensory_Thalamus_Stats + Sensory_Thalamus_Individual',
+                'Interlaminar_Nuclei_Stats + Interlaminar_Nuclei_Individual',
                 'Subcortical_Heatmap_Data',
                 'Cortical_Heatmap_Data',
                 'Subcortical_BarPlot_Stats + Subcortical_Individual_Brains',
                 'Cortical_BarPlot_Stats + Cortical_Individual_Brains'
             ],
             'Raw_Data_Sheet': [
+                'Complete_Raw_Data',
+                'Complete_Raw_Data',
+                'Complete_Raw_Data',
+                'Complete_Raw_Data',
+                'Complete_Raw_Data',
                 'Subcortical_Raw_Data',
                 'Cortical_Raw_Data',
                 'Subcortical_Raw_Data',
                 'Cortical_Raw_Data'
             ],
             'Description': [
+                'Bar plot comparing cortical vs subcortical distribution normalized to 100%',
+                'Bar plot showing polymodal vs sensory modal thalamus normalized to 100% within thalamus',
+                'Bar plot showing subnuclei of polymodal thalamus normalized to 100% within polymodal thalamus',
+                'Bar plot showing subnuclei of sensory modal thalamus normalized to 100% within sensory modal thalamus',
+                'Bar plot showing interlaminar nuclei of polymodal thalamus normalized to 100% within interlaminar nuclei',
                 'Heatmap showing custom subcortical groups normalized to 100% per brain',
                 'Heatmap showing custom cortical groups normalized to 100% per brain',
                 'Bar plot with mean±SEM and individual brain values for subcortical groups',
@@ -743,6 +811,197 @@ def create_allen_mapping_report(details_df):
     
     print(f"Allen Brain Atlas mapping report saved: {report_path}")
 
+def create_cortical_vs_subcortical_comparison(details_df):
+    """Create cortical vs subcortical comparison with two bar plots"""
+    print("Creating Cortical vs Subcortical Comparison...")
+    
+    # Get cortical and subcortical data
+    cortical_mask = details_df['is_cortical'] == True
+    subcortical_mask = details_df['is_subcortical'] == True
+    
+    # Include ALL amygdalar regions in subcortical data and exclude from cortical
+    amygdalar_mask = details_df['Region'].str.contains('amygdalar', case=False, na=False)
+    specific_amygdalar_regions = [
+        'Cortical amygdalar area',
+        'Piriform-amygdalar area'
+    ]
+    specific_amygdalar_mask = details_df['Region'].isin(specific_amygdalar_regions)
+    all_amygdalar_mask = amygdalar_mask | specific_amygdalar_mask
+    
+    subcortical_mask = subcortical_mask | all_amygdalar_mask
+    cortical_mask = cortical_mask & ~all_amygdalar_mask
+    
+    cortical_data = details_df[cortical_mask]
+    subcortical_data = details_df[subcortical_mask]
+    
+    # Calculate total percentages for cortical vs subcortical
+    cortical_total = cortical_data['count'].sum()
+    subcortical_total = subcortical_data['count'].sum()
+    total_cells = cortical_total + subcortical_total
+    
+    cortical_pct = (cortical_total / total_cells) * 100
+    subcortical_pct = (subcortical_total / total_cells) * 100
+    
+    # Create comparison data
+    comparison_data = pd.DataFrame({
+        'Region_Type': ['Cortical', 'Subcortical'],
+        'Percentage': [cortical_pct, subcortical_pct],
+        'Total_Cells': [cortical_total, subcortical_total]
+    })
+    
+    # Create the plot
+    plt.figure(figsize=(10, 6))
+    bars = plt.bar(comparison_data['Region_Type'], comparison_data['Percentage'], 
+                   color=['#2E86AB', '#A23B72'], alpha=0.8)
+    
+    # Add percentage labels on bars
+    for bar, pct in zip(bars, comparison_data['Percentage']):
+        plt.text(bar.get_x() + bar.get_width()/2, bar.get_height() + 1, 
+                f'{pct:.1f}%', ha='center', va='bottom', fontsize=14, fontweight='bold')
+    
+    plt.ylabel('Percentage of Total Cells (%)', fontsize=12)
+    plt.title('Cortical vs Subcortical Distribution (Normalized to 100%)', fontsize=14, fontweight='bold')
+    plt.ylim(0, max(comparison_data['Percentage']) * 1.2)
+    plt.grid(axis='y', alpha=0.3)
+    
+    # Add total cell counts as text
+    plt.text(0.5, max(comparison_data['Percentage']) * 0.8, 
+             f'Total Cells: {total_cells:,}', ha='center', va='center', 
+             fontsize=12, bbox=dict(boxstyle="round,pad=0.3", facecolor="white", alpha=0.8))
+    
+    plt.tight_layout()
+    
+    # Save as PNG, SVG, and PDF
+    base_path = FIGURES_DIR / "1_cortical_vs_subcortical_comparison"
+    plt.savefig(f"{base_path}.png", dpi=300, bbox_inches='tight')
+    plt.savefig(f"{base_path}.svg", bbox_inches='tight')
+    plt.savefig(f"{base_path}.pdf", bbox_inches='tight')
+    plt.close()
+    print(f"Saved: {base_path}.png, .svg, .pdf")
+    
+    return comparison_data
+
+def create_thalamus_zoom(details_df):
+    """Create zoom in on thalamus (polymodal vs sensory modal)"""
+    print("Creating Thalamus Zoom (Polymodal vs Sensory Modal)...")
+    
+    # Get thalamic data
+    thalamus_data = details_df[details_df['allen_primary_group'] == 'Thalamus'].copy()
+    
+    if thalamus_data.empty:
+        print("No thalamic data found!")
+        return None
+    
+    # Calculate stats for thalamic groups
+    thalamus_stats, thalamus_individual = calculate_group_stats_with_individuals(
+        thalamus_data, 'thalamic_group'
+    )
+    
+    # Rename groups for clarity
+    thalamus_stats_renamed = thalamus_stats.copy()
+    thalamus_stats_renamed['thalamic_group'] = thalamus_stats_renamed['thalamic_group'].replace({
+        'Thalamus, polymodal association cortex related': 'Polymodal Thalamus',
+        'Thalamus, sensory-motor cortex related': 'Sensory Modal Thalamus'
+    })
+    
+    create_enhanced_bar_plot(
+        thalamus_stats_renamed,
+        "Thalamus: Polymodal vs Sensory Modal (Normalized to 100% within Thalamus)",
+        FIGURES_DIR / "4_thalamus_polymodal_vs_sensory",
+        thalamus_individual,
+        figsize=(12, 8)
+    )
+    
+    return thalamus_stats, thalamus_individual
+
+def create_polymodal_subnuclei_zoom(details_df):
+    """Create zoom in on subnuclei of polymodal thalamus"""
+    print("Creating Polymodal Thalamus Subnuclei Zoom...")
+    
+    # Get polymodal thalamic data
+    polymodal_data = details_df[
+        (details_df['allen_primary_group'] == 'Thalamus') & 
+        (details_df['thalamic_group'] == 'Thalamus, polymodal association cortex related')
+    ].copy()
+    
+    if polymodal_data.empty:
+        print("No polymodal thalamic data found!")
+        return None
+    
+    # Calculate stats for polymodal subdivisions
+    polymodal_stats, polymodal_individual = calculate_group_stats_with_individuals(
+        polymodal_data, 'thalamic_subdivision'
+    )
+    
+    create_enhanced_bar_plot(
+        polymodal_stats,
+        "Polymodal Thalamus Subnuclei (Normalized to 100% within Polymodal Thalamus)",
+        FIGURES_DIR / "5_polymodal_thalamus_subnuclei",
+        polymodal_individual,
+        figsize=(14, 10)
+    )
+    
+    return polymodal_stats, polymodal_individual
+
+def create_sensory_subnuclei_zoom(details_df):
+    """Create zoom in on subnuclei of sensory modal thalamus"""
+    print("Creating Sensory Modal Thalamus Subnuclei Zoom...")
+    
+    # Get sensory modal thalamic data
+    sensory_data = details_df[
+        (details_df['allen_primary_group'] == 'Thalamus') & 
+        (details_df['thalamic_group'] == 'Thalamus, sensory-motor cortex related')
+    ].copy()
+    
+    if sensory_data.empty:
+        print("No sensory modal thalamic data found!")
+        return None
+    
+    # Calculate stats for sensory subdivisions
+    sensory_stats, sensory_individual = calculate_group_stats_with_individuals(
+        sensory_data, 'thalamic_subdivision'
+    )
+    
+    create_enhanced_bar_plot(
+        sensory_stats,
+        "Sensory Modal Thalamus Subnuclei (Normalized to 100% within Sensory Modal Thalamus)",
+        FIGURES_DIR / "6_sensory_thalamus_subnuclei",
+        sensory_individual,
+        figsize=(14, 10)
+    )
+    
+    return sensory_stats, sensory_individual
+
+def create_interlaminar_nuclei_zoom(details_df):
+    """Create zoom in on interlaminar nuclei of polymodal thalamus"""
+    print("Creating Interlaminar Nuclei Zoom...")
+    
+    # Get interlaminar nuclei data from polymodal thalamus
+    interlaminar_data = details_df[
+        (details_df['allen_primary_group'] == 'Thalamus') & 
+        (details_df['thalamic_group'] == 'Thalamus, polymodal association cortex related') &
+        (details_df['thalamic_subdivision'] == 'Intralaminar nuclei of the dorsal thalamus')
+    ].copy()
+    
+    if interlaminar_data.empty:
+        print("No interlaminar nuclei data found!")
+        return None
+    
+    # Calculate stats for individual interlaminar nuclei
+    interlaminar_stats, interlaminar_individual = calculate_group_stats_with_individuals(
+        interlaminar_data, 'Region'
+    )
+    
+    create_enhanced_bar_plot(
+        interlaminar_stats,
+        "Interlaminar Nuclei of Polymodal Thalamus (Normalized to 100% within Interlaminar Nuclei)",
+        FIGURES_DIR / "7_interlaminar_nuclei_polymodal",
+        interlaminar_individual,
+        figsize=(12, 8)
+    )
+    
+    return interlaminar_stats, interlaminar_individual
+
 def main():
     """Main analysis function"""
     print("Loading data...")
@@ -791,27 +1050,46 @@ def main():
     cortical_data = details_df[cortical_mask]
     subcortical_data = details_df[subcortical_mask]
     
-    # 1. Subcortical custom groups heatmap
+    # NEW FIGURES - Create all the requested additional figures
+    
+    # 1. Cortical vs Subcortical comparison
+    cortical_vs_subcortical_data = create_cortical_vs_subcortical_comparison(details_df)
+    
+    # 2. Thalamus zoom (polymodal vs sensory modal)
+    thalamus_stats, thalamus_individual = create_thalamus_zoom(details_df)
+    
+    # 3. Polymodal thalamus subnuclei zoom
+    polymodal_stats, polymodal_individual = create_polymodal_subnuclei_zoom(details_df)
+    
+    # 4. Sensory modal thalamus subnuclei zoom
+    sensory_stats, sensory_individual = create_sensory_subnuclei_zoom(details_df)
+    
+    # 5. Interlaminar nuclei zoom
+    interlaminar_stats, interlaminar_individual = create_interlaminar_nuclei_zoom(details_df)
+    
+    # EXISTING FIGURES - Keep the original figures
+    
+    # 6. Subcortical custom groups heatmap
     print("Creating Custom Subcortical Groups Heatmap...")
     subcortical_heatmap_data = create_parent_group_heatmap(
         subcortical_data,
         "Custom Subcortical Groups per Brain (Normalized to 100% per Brain)",
-        FIGURES_DIR / "2_custom_subcortical_groups_heatmap",
+        FIGURES_DIR / "8_custom_subcortical_groups_heatmap",
         'custom_subcortical_group',
         figsize=(10, 8)
     )
     
-    # 2. Cortical custom groups heatmap
+    # 7. Cortical custom groups heatmap
     print("Creating Custom Cortical Groups Heatmap...")
     cortical_heatmap_data = create_parent_group_heatmap(
         cortical_data,
         "Custom Cortical Groups per Brain (Normalized to 100% per Brain)",
-        FIGURES_DIR / "3_custom_cortical_groups_heatmap",
+        FIGURES_DIR / "9_custom_cortical_groups_heatmap",
         'custom_cortical_group',
         figsize=(12, 8)
     )
     
-    # 3. Enhanced subcortical bar plot with individual values
+    # 8. Enhanced subcortical bar plot with individual values
     print("Creating Enhanced Custom Subcortical Bar Plot...")
     subcortical_stats, subcortical_individual = calculate_group_stats_with_individuals(
         subcortical_data, 'custom_subcortical_group'
@@ -819,12 +1097,12 @@ def main():
     create_enhanced_bar_plot(
         subcortical_stats,
         "Custom Subcortical Groups (Normalized to 100% within Subcortex) with Individual Brain Values",
-        FIGURES_DIR / "2_custom_subcortical_regions_enhanced",
+        FIGURES_DIR / "10_custom_subcortical_regions_enhanced",
         subcortical_individual,
         figsize=(14, 10)
     )
     
-    # 4. Enhanced cortical bar plot with individual values
+    # 9. Enhanced cortical bar plot with individual values
     print("Creating Enhanced Custom Cortical Bar Plot...")
     cortical_stats, cortical_individual = calculate_group_stats_with_individuals(
         cortical_data, 'custom_cortical_group'
@@ -832,12 +1110,12 @@ def main():
     create_enhanced_bar_plot(
         cortical_stats,
         "Custom Cortical Groups (Normalized to 100% within Cortex) with Individual Brain Values",
-        FIGURES_DIR / "3_custom_cortical_regions_enhanced",
+        FIGURES_DIR / "11_custom_cortical_regions_enhanced",
         cortical_individual,
         figsize=(14, 10)
     )
     
-    # 5. Create comprehensive Excel file with all graph data
+    # 10. Create comprehensive Excel file with all graph data
     print("Creating comprehensive Excel file with all graph data...")
     create_comprehensive_excel(
         details_df, 
@@ -847,7 +1125,16 @@ def main():
         subcortical_stats=subcortical_stats,
         cortical_stats=cortical_stats,
         subcortical_individual=subcortical_individual,
-        cortical_individual=cortical_individual
+        cortical_individual=cortical_individual,
+        cortical_vs_subcortical_data=cortical_vs_subcortical_data,
+        thalamus_stats=thalamus_stats,
+        thalamus_individual=thalamus_individual,
+        polymodal_stats=polymodal_stats,
+        polymodal_individual=polymodal_individual,
+        sensory_stats=sensory_stats,
+        sensory_individual=sensory_individual,
+        interlaminar_stats=interlaminar_stats,
+        interlaminar_individual=interlaminar_individual
     )
     
     print(f"\nEnhanced analysis complete! Results saved to: {RESULTS_DIR}")
