@@ -1,0 +1,8 @@
+Regions excluded by user request:
+==================================================
+Basic cell groups and regions: 90 cells
+Claustrum: 73 cells
+Cerebral cortex: 32 cells
+Endopiriform nucleus: 54 cells
+
+Footnote: Amygdalar regions with 'Other' allen_primary_group were kept and grouped under 'Amygdala'.
