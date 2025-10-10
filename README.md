@@ -1,6 +1,6 @@
 # Enhanced Brain Analysis
 
-This repository contains comprehensive analysis of brain region data with enhanced visualizations and individual brain value tracking.
+This repository contains comprehensive analysis of brain region data with enhanced visualizations and individual brain value tracking. This project is open source and freely available under the MIT License.
 
 ## Overview
 
@@ -29,7 +29,8 @@ yana-data/
 ├── results/                   # Basic analysis results
 ├── enhanced_brain_analysis.py # Enhanced analysis script
 ├── comprehensive_brain_analysis.py # Original analysis script
-└── README.md                  # This file
+├── README.md                  # This file
+└── LICENSE                    # MIT License
 ```
 
 ## Key Features
@@ -309,6 +310,19 @@ All visualizations are saved in three formats:
 - **Normalized sheets**: Values sum to 100% per brain
 - **Raw sheets**: Original percentage values
 - **Summary sheets**: Statistical measures across brains
+
+## License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+The MIT License allows you to:
+- ✅ Use the software for any purpose
+- ✅ Modify and distribute the software
+- ✅ Use the software in commercial projects
+- ✅ Distribute copies of the software
+- ✅ Include the software in proprietary software
+
+The only requirement is that you include the original copyright notice and license text in any copies or substantial portions of the software.
 
 ## Contact
 
