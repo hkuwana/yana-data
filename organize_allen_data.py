@@ -429,6 +429,8 @@ def aggregate_regions(df: pd.DataFrame) -> pd.DataFrame:
                         "is_subcortical",
                         "thalamic_group",
                         "thalamic_subdivision",
+                        "striatal_group",
+                        "striatal_subdivision",
                         "allen_path",
                         "mapping_type",
                     ]
@@ -460,6 +462,8 @@ def aggregate_regions(df: pd.DataFrame) -> pd.DataFrame:
         "is_subcortical",
         "thalamic_group",
         "thalamic_subdivision",
+        "striatal_group",
+        "striatal_subdivision",
         "mapping_type",
         "count",
         "normalized",

@@ -24,7 +24,7 @@ import warnings
 warnings.filterwarnings('ignore')
 
 # Set up paths
-DATA_DIR = Path("/Users/hiro/Documents/yana-data")
+DATA_DIR = Path(__file__).resolve().parent
 RESULTS_DIR = DATA_DIR / "results"
 FIGURES_DIR = RESULTS_DIR / "figures"
 EXCEL_DIR = RESULTS_DIR / "excel"
