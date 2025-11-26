@@ -76,6 +76,8 @@ class AllenStructureMetadata:
     primary_group: str
     thalamic_group: Optional[str]
     thalamic_subdivision: Optional[str]
+    striatal_group: Optional[str]
+    striatal_subdivision: Optional[str]
     path_names: List[str]
 
 
@@ -284,6 +286,15 @@ def build_metadata(tree: StructureTree, structure: Dict, resolved_name: str) -> 
             else:
                 thalamic_subdivision = path_names[idx + 2]
 
+    striatal_group = None
+    striatal_subdivision = None
+    if "Striatum" in path_names:
+        idx = path_names.index("Striatum")
+        if idx + 1 < len(path_names):
+            striatal_group = path_names[idx + 1]
+        if idx + 2 < len(path_names):
+            striatal_subdivision = path_names[idx + 2]
+
     primary_group = determine_primary_group(path_names, is_cortical)
 
     return AllenStructureMetadata(
@@ -298,6 +309,8 @@ def build_metadata(tree: StructureTree, structure: Dict, resolved_name: str) -> 
         primary_group=primary_group,
         thalamic_group=thalamic_group,
         thalamic_subdivision=thalamic_subdivision,
+        striatal_group=striatal_group,
+        striatal_subdivision=striatal_subdivision,
         path_names=path_names,
     )
 
@@ -339,6 +352,8 @@ def attach_allen_annotations(tree: StructureTree, df: pd.DataFrame) -> Tuple[pd.
                 "allen_primary_group": meta.primary_group,
                 "thalamic_group": meta.thalamic_group,
                 "thalamic_subdivision": meta.thalamic_subdivision,
+                "striatal_group": meta.striatal_group,
+                "striatal_subdivision": meta.striatal_subdivision,
                 "allen_path": json.dumps(meta.path_names),
                 "mapping_type": match_type,
             }
@@ -374,9 +389,17 @@ def add_percentages(df: pd.DataFrame) -> pd.DataFrame:
         thalamus_mask = df["allen_primary_group"] == "Thalamus"
         if thalamus_mask.any():
             df.loc[thalamus_mask, "count_pct_thalamus"] = (df.loc[thalamus_mask, "count"] / thalamus_totals).fillna(0) * 100
+
+        # Add striatum-specific percentages
+        striatum_totals = df[df["allen_primary_group"] == "Striatum"].groupby("source_sheet")["count"].transform("sum")
+        df["count_pct_striatum"] = 0.0
+        striatum_mask = df["allen_primary_group"] == "Striatum"
+        if striatum_mask.any():
+            df.loc[striatum_mask, "count_pct_striatum"] = (df.loc[striatum_mask, "count"] / striatum_totals).fillna(0) * 100
     else:
         df["count_pct_brain"] = 0
         df["count_pct_thalamus"] = 0
+        df["count_pct_striatum"] = 0
 
     return df
 

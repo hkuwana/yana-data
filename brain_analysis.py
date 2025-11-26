@@ -284,11 +284,14 @@ def calculate_group_stats_with_individuals(df, group_col, value_col='count_pct_b
     
     return stats.sort_values('mean_pct_normalized', ascending=False), individual_data
 
-def create_comprehensive_excel(details_df, summary_df, subcortical_heatmap_data=None, cortical_heatmap_data=None, 
+def create_comprehensive_excel(details_df, summary_df, subcortical_heatmap_data=None, cortical_heatmap_data=None,
                               subcortical_stats=None, cortical_stats=None, subcortical_individual=None, cortical_individual=None,
                               cortical_vs_subcortical_data=None, thalamus_stats=None, thalamus_individual=None,
                               polymodal_stats=None, polymodal_individual=None, sensory_stats=None, sensory_individual=None,
-                              interlaminar_stats=None, interlaminar_individual=None):
+                              interlaminar_stats=None, interlaminar_individual=None,
+                              striatum_stats=None, striatum_individual=None,
+                              dorsal_striatum_stats=None, dorsal_striatum_individual=None,
+                              ventral_striatum_stats=None, ventral_striatum_individual=None):
     """Create comprehensive Excel file with all data and individual brain values for every graph"""
     excel_path = EXCEL_DIR / "enhanced_brain_analysis.xlsx"
     
@@ -374,11 +377,32 @@ def create_comprehensive_excel(details_df, summary_df, subcortical_heatmap_data=
         # Sheet 22-23: Interlaminar nuclei data
         if interlaminar_stats is not None:
             interlaminar_stats.to_excel(writer, sheet_name='Interlaminar_Nuclei_Stats', index=False)
-        
+
         if interlaminar_individual is not None:
             interlaminar_individual.to_excel(writer, sheet_name='Interlaminar_Nuclei_Individual', index=True)
-        
-        # Sheet 24: Graph metadata and instructions
+
+        # Sheet 24-25: Striatum data
+        if striatum_stats is not None:
+            striatum_stats.to_excel(writer, sheet_name='Striatum_Stats', index=False)
+
+        if striatum_individual is not None:
+            striatum_individual.to_excel(writer, sheet_name='Striatum_Individual_Brains', index=True)
+
+        # Sheet 26-27: Dorsal striatum data
+        if dorsal_striatum_stats is not None:
+            dorsal_striatum_stats.to_excel(writer, sheet_name='Dorsal_Striatum_Stats', index=False)
+
+        if dorsal_striatum_individual is not None:
+            dorsal_striatum_individual.to_excel(writer, sheet_name='Dorsal_Striatum_Individual', index=True)
+
+        # Sheet 28-29: Ventral striatum data
+        if ventral_striatum_stats is not None:
+            ventral_striatum_stats.to_excel(writer, sheet_name='Ventral_Striatum_Stats', index=False)
+
+        if ventral_striatum_individual is not None:
+            ventral_striatum_individual.to_excel(writer, sheet_name='Ventral_Striatum_Individual', index=True)
+
+        # Sheet 30: Graph metadata and instructions
         graph_info = pd.DataFrame({
             'Graph_Name': [
                 'Cortical_vs_Subcortical',
@@ -386,8 +410,11 @@ def create_comprehensive_excel(details_df, summary_df, subcortical_heatmap_data=
                 'Polymodal_Thalamus_Subnuclei',
                 'Sensory_Thalamus_Subnuclei',
                 'Interlaminar_Nuclei_Polymodal',
+                'Striatum_Dorsal_vs_Ventral',
+                'Dorsal_Striatum_Subnuclei',
+                'Ventral_Striatum_Subnuclei',
                 'Subcortical_Heatmap',
-                'Cortical_Heatmap', 
+                'Cortical_Heatmap',
                 'Subcortical_BarPlot',
                 'Cortical_BarPlot'
             ],
@@ -397,12 +424,18 @@ def create_comprehensive_excel(details_df, summary_df, subcortical_heatmap_data=
                 'Polymodal_Thalamus_Stats + Polymodal_Thalamus_Individual',
                 'Sensory_Thalamus_Stats + Sensory_Thalamus_Individual',
                 'Interlaminar_Nuclei_Stats + Interlaminar_Nuclei_Individual',
+                'Striatum_Stats + Striatum_Individual_Brains',
+                'Dorsal_Striatum_Stats + Dorsal_Striatum_Individual',
+                'Ventral_Striatum_Stats + Ventral_Striatum_Individual',
                 'Subcortical_Heatmap_Data',
                 'Cortical_Heatmap_Data',
                 'Subcortical_BarPlot_Stats + Subcortical_Individual_Brains',
                 'Cortical_BarPlot_Stats + Cortical_Individual_Brains'
             ],
             'Raw_Data_Sheet': [
+                'Complete_Raw_Data',
+                'Complete_Raw_Data',
+                'Complete_Raw_Data',
                 'Complete_Raw_Data',
                 'Complete_Raw_Data',
                 'Complete_Raw_Data',
@@ -419,6 +452,9 @@ def create_comprehensive_excel(details_df, summary_df, subcortical_heatmap_data=
                 'Bar plot showing subnuclei of polymodal thalamus normalized to 100% within polymodal thalamus',
                 'Bar plot showing subnuclei of sensory modal thalamus normalized to 100% within sensory modal thalamus',
                 'Bar plot showing interlaminar nuclei of polymodal thalamus normalized to 100% within interlaminar nuclei',
+                'Bar plot showing dorsal vs ventral striatum normalized to 100% within striatum',
+                'Bar plot showing subnuclei of dorsal striatum normalized to 100% within dorsal striatum',
+                'Bar plot showing subnuclei of ventral striatum normalized to 100% within ventral striatum',
                 'Heatmap showing custom subcortical groups normalized to 100% per brain',
                 'Heatmap showing custom cortical groups normalized to 100% per brain',
                 'Bar plot with mean±SEM and individual brain values for subcortical groups',
@@ -1002,6 +1038,107 @@ def create_interlaminar_nuclei_zoom(details_df):
     
     return interlaminar_stats, interlaminar_individual
 
+def create_striatum_zoom(details_df):
+    """Create zoom in on striatum (dorsal vs ventral regions)"""
+    print("Creating Striatum Zoom (Dorsal vs Ventral Regions)...")
+
+    # Get striatal data
+    striatum_data = details_df[details_df['allen_primary_group'] == 'Striatum'].copy()
+
+    if striatum_data.empty:
+        print("No striatal data found!")
+        return None, None
+
+    # Filter to only include dorsal and ventral regions (exclude striatum-like amygdalar nuclei)
+    striatum_data = striatum_data[
+        (striatum_data['striatal_group'] == 'Striatum dorsal region') |
+        (striatum_data['striatal_group'] == 'Striatum ventral region')
+    ].copy()
+
+    if striatum_data.empty:
+        print("No striatal dorsal/ventral region data found!")
+        return None, None
+
+    # Calculate stats for striatal groups
+    striatum_stats, striatum_individual = calculate_group_stats_with_individuals(
+        striatum_data, 'striatal_group'
+    )
+
+    # Rename groups for clarity
+    striatum_stats_renamed = striatum_stats.copy()
+    striatum_stats_renamed['striatal_group'] = striatum_stats_renamed['striatal_group'].replace({
+        'Striatum dorsal region': 'Dorsal Striatum',
+        'Striatum ventral region': 'Ventral Striatum'
+    })
+
+    create_enhanced_bar_plot(
+        striatum_stats_renamed,
+        "Striatum: Dorsal vs Ventral Regions (Normalized to 100% within Striatum)",
+        FIGURES_DIR / "12_striatum_dorsal_vs_ventral",
+        striatum_individual,
+        figsize=(12, 8)
+    )
+
+    return striatum_stats, striatum_individual
+
+def create_striatum_dorsal_subnuclei_zoom(details_df):
+    """Create zoom in on subnuclei of dorsal striatum"""
+    print("Creating Dorsal Striatum Subnuclei Zoom...")
+
+    # Get dorsal striatal data
+    dorsal_data = details_df[
+        (details_df['allen_primary_group'] == 'Striatum') &
+        (details_df['striatal_group'] == 'Striatum dorsal region')
+    ].copy()
+
+    if dorsal_data.empty:
+        print("No dorsal striatal data found!")
+        return None, None
+
+    # Calculate stats for dorsal subdivisions
+    dorsal_stats, dorsal_individual = calculate_group_stats_with_individuals(
+        dorsal_data, 'Region'
+    )
+
+    create_enhanced_bar_plot(
+        dorsal_stats,
+        "Dorsal Striatum Subnuclei (Normalized to 100% within Dorsal Striatum)",
+        FIGURES_DIR / "13_dorsal_striatum_subnuclei",
+        dorsal_individual,
+        figsize=(12, 8)
+    )
+
+    return dorsal_stats, dorsal_individual
+
+def create_striatum_ventral_subnuclei_zoom(details_df):
+    """Create zoom in on subnuclei of ventral striatum"""
+    print("Creating Ventral Striatum Subnuclei Zoom...")
+
+    # Get ventral striatal data
+    ventral_data = details_df[
+        (details_df['allen_primary_group'] == 'Striatum') &
+        (details_df['striatal_group'] == 'Striatum ventral region')
+    ].copy()
+
+    if ventral_data.empty:
+        print("No ventral striatal data found!")
+        return None, None
+
+    # Calculate stats for ventral subdivisions
+    ventral_stats, ventral_individual = calculate_group_stats_with_individuals(
+        ventral_data, 'Region'
+    )
+
+    create_enhanced_bar_plot(
+        ventral_stats,
+        "Ventral Striatum Subnuclei (Normalized to 100% within Ventral Striatum)",
+        FIGURES_DIR / "14_ventral_striatum_subnuclei",
+        ventral_individual,
+        figsize=(12, 8)
+    )
+
+    return ventral_stats, ventral_individual
+
 def main():
     """Main analysis function"""
     print("Loading data...")
@@ -1066,30 +1203,39 @@ def main():
     
     # 5. Interlaminar nuclei zoom
     interlaminar_stats, interlaminar_individual = create_interlaminar_nuclei_zoom(details_df)
-    
+
+    # 6. Striatum zoom (dorsal vs ventral regions)
+    striatum_stats, striatum_individual = create_striatum_zoom(details_df)
+
+    # 7. Dorsal striatum subnuclei zoom
+    dorsal_striatum_stats, dorsal_striatum_individual = create_striatum_dorsal_subnuclei_zoom(details_df)
+
+    # 8. Ventral striatum subnuclei zoom
+    ventral_striatum_stats, ventral_striatum_individual = create_striatum_ventral_subnuclei_zoom(details_df)
+
     # EXISTING FIGURES - Keep the original figures
-    
-    # 6. Subcortical custom groups heatmap
+
+    # 9. Subcortical custom groups heatmap
     print("Creating Custom Subcortical Groups Heatmap...")
     subcortical_heatmap_data = create_parent_group_heatmap(
         subcortical_data,
         "Custom Subcortical Groups per Brain (Normalized to 100% per Brain)",
-        FIGURES_DIR / "8_custom_subcortical_groups_heatmap",
+        FIGURES_DIR / "15_custom_subcortical_groups_heatmap",
         'custom_subcortical_group',
         figsize=(10, 8)
     )
-    
-    # 7. Cortical custom groups heatmap
+
+    # 10. Cortical custom groups heatmap
     print("Creating Custom Cortical Groups Heatmap...")
     cortical_heatmap_data = create_parent_group_heatmap(
         cortical_data,
         "Custom Cortical Groups per Brain (Normalized to 100% per Brain)",
-        FIGURES_DIR / "9_custom_cortical_groups_heatmap",
+        FIGURES_DIR / "16_custom_cortical_groups_heatmap",
         'custom_cortical_group',
         figsize=(12, 8)
     )
-    
-    # 8. Enhanced subcortical bar plot with individual values
+
+    # 11. Enhanced subcortical bar plot with individual values
     print("Creating Enhanced Custom Subcortical Bar Plot...")
     subcortical_stats, subcortical_individual = calculate_group_stats_with_individuals(
         subcortical_data, 'custom_subcortical_group'
@@ -1097,12 +1243,12 @@ def main():
     create_enhanced_bar_plot(
         subcortical_stats,
         "Custom Subcortical Groups (Normalized to 100% within Subcortex) with Individual Brain Values",
-        FIGURES_DIR / "10_custom_subcortical_regions_enhanced",
+        FIGURES_DIR / "17_custom_subcortical_regions_enhanced",
         subcortical_individual,
         figsize=(14, 10)
     )
-    
-    # 9. Enhanced cortical bar plot with individual values
+
+    # 12. Enhanced cortical bar plot with individual values
     print("Creating Enhanced Custom Cortical Bar Plot...")
     cortical_stats, cortical_individual = calculate_group_stats_with_individuals(
         cortical_data, 'custom_cortical_group'
@@ -1110,15 +1256,15 @@ def main():
     create_enhanced_bar_plot(
         cortical_stats,
         "Custom Cortical Groups (Normalized to 100% within Cortex) with Individual Brain Values",
-        FIGURES_DIR / "11_custom_cortical_regions_enhanced",
+        FIGURES_DIR / "18_custom_cortical_regions_enhanced",
         cortical_individual,
         figsize=(14, 10)
     )
     
-    # 10. Create comprehensive Excel file with all graph data
+    # 13. Create comprehensive Excel file with all graph data
     print("Creating comprehensive Excel file with all graph data...")
     create_comprehensive_excel(
-        details_df, 
+        details_df,
         summary_df,
         subcortical_heatmap_data=subcortical_heatmap_data,
         cortical_heatmap_data=cortical_heatmap_data,
@@ -1134,7 +1280,13 @@ def main():
         sensory_stats=sensory_stats,
         sensory_individual=sensory_individual,
         interlaminar_stats=interlaminar_stats,
-        interlaminar_individual=interlaminar_individual
+        interlaminar_individual=interlaminar_individual,
+        striatum_stats=striatum_stats,
+        striatum_individual=striatum_individual,
+        dorsal_striatum_stats=dorsal_striatum_stats,
+        dorsal_striatum_individual=dorsal_striatum_individual,
+        ventral_striatum_stats=ventral_striatum_stats,
+        ventral_striatum_individual=ventral_striatum_individual
     )
     
     print(f"\nEnhanced analysis complete! Results saved to: {RESULTS_DIR}")
